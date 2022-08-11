@@ -1,0 +1,49 @@
+name: Copy action
+
+description: Copy files and directories to a remote host
+
+inputs:
+  ssh_key:
+    description: ssh private key
+    required: true
+
+  ssh_user:
+    description: remote machines username
+    required: true
+
+  ssh_host:
+    descrition: remote machines host address
+    required: true
+
+  source:
+    description: source files and directories
+    required: true
+
+  destination:
+    description: destination path
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: create ssh config file
+      shell: bash
+      run: |
+        COPY_ACTION_KEY_NAME="KEY_$RANDOM"
+        echo "COPY_ACTION_KEY_NAME=$COPY_ACTION_KEY_NAME" >> $GITHUB_ENV
+
+        mkdir -p ~/.ssh
+        echo '${{ inputs.ssh_key }}' > ~/.ssh/$COPY_ACTION_KEY_NAME
+        sudo chmod 400 ~/.ssh/$COPY_ACTION_KEY_NAME
+
+    - name: copy files
+      shell: bash
+      run: |
+        rsync -cr  \
+          -e "ssh -o PubKeyAuthentication=yes -o RequestTTY=no -o StrictHostKeyChecking=no -i ~/.ssh/$COPY_ACTION_KEY_NAME" \
+          ${{ inputs.source }} ${{ inputs.ssh_user }}@${{ inputs.ssh_host }}:${{ inputs.destination }}
+
+    - name: remove ssh key
+      if: always()
+      shell: bash
+      run: rm ~/.ssh/$COPY_ACTION_KEY_NAME
